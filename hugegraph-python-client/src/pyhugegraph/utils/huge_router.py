@@ -126,7 +126,27 @@ def http(method: str, path: str) -> Callable:
                 all_kwargs = dict(bound_args.arguments)
                 # Remove 'self' from the arguments used to format the pathinfo
                 all_kwargs.pop("self")
-                formatted_path = path.format(**all_kwargs)
+                
+                # Support graphspace-scoped paths: prefer graphspace-prefixed path
+                # but gracefully fall back to server-level /auth/... if graphspace
+                # is not configured or the server does not support graphspaces.
+                if "{graphspace}" in path:
+                    # Prefer explicit graphspace argument passed by caller
+                    graphspace_arg = all_kwargs.get("graphspace")
+                    graphspace_cfg = getattr(self.session.cfg, "graphspace", None)
+                    gs_supported = getattr(self.session.cfg, "gs_supported", False)
+
+                    # Use graphspace if available and server supports it
+                    if graphspace_arg or (graphspace_cfg and gs_supported):
+                        all_kwargs.setdefault("graphspace", graphspace_arg or graphspace_cfg)
+                        formatted_path = path.format(**all_kwargs)
+                    else:
+                        # Fallback to server-level absolute auth path by removing
+                        # the leading '/graphspaces/{graphspace}' segment.
+                        fallback_path = path.replace("/graphspaces/{graphspace}", "")
+                        formatted_path = fallback_path.format(**all_kwargs)
+                else:
+                    formatted_path = path.format(**all_kwargs)
             else:
                 formatted_path = path
 
