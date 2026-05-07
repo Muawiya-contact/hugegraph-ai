@@ -19,6 +19,7 @@
 import unittest
 
 from pyhugegraph.utils.exceptions import NotFoundError
+import requests
 
 from ..client_utils import ClientUtils
 
@@ -40,6 +41,9 @@ class TestAuthManager(unittest.TestCase):
                 cls.skip_auth_tests = True
             else:
                 raise
+        except requests.exceptions.RequestException:
+            # Could not connect to server (timeout/connection error) — skip
+            cls.skip_auth_tests = True
 
     @classmethod
     def tearDownClass(cls):
