@@ -125,18 +125,15 @@ class TestGremlinSetupBehavior(unittest.TestCase):
 
         self.assertFalse(TestGremlin.skip_gremlin_tests)
 
-    def test_set_up_class_reraises_probe_errors(self):
-        # When the gremlin client raises NotFoundError during operations,
-        # do not silently skip — surface the error so tests fail.
+    def test_set_up_class_no_longer_probes_gremlin(self):
+        # After removing the probe, setUpClass should NOT call gremlin.exec at all.
         with mock.patch(f"{TestGremlin.__module__}.ClientUtils") as client_utils_cls:
             client = client_utils_cls.return_value
             client.gremlin = mock.Mock()
-            client.gremlin.exec.side_effect = NotFoundError("404 Not Found")
 
-            with self.assertRaises(NotFoundError):
-                TestGremlin.setUpClass()
+            TestGremlin.setUpClass()
 
-        self.assertFalse(TestGremlin.skip_gremlin_tests)
+            client.gremlin.exec.assert_not_called()
 
     def test_set_up_class_skips_when_env_var_set(self):
         # Explicit opt-in skip via environment variable is supported.
