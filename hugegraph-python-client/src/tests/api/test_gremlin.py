@@ -29,6 +29,7 @@ class TestGremlin(unittest.TestCase):
     client = None
     gremlin = None
     skip_gremlin_tests = False
+
     @classmethod
     def setUpClass(cls):
         # To run these tests locally, start HugeGraph via Docker:
@@ -40,9 +41,7 @@ class TestGremlin(unittest.TestCase):
         # Do NOT add automatic skip logic based on connectivity probes.
         # Endpoint failures must surface as FAILED tests, not SKIPPED.
         if os.environ.get("SKIP_GREMLIN_TESTS", "").lower() == "true":
-            raise unittest.SkipTest(
-                "Skipping Gremlin tests: SKIP_GREMLIN_TESTS=true"
-            )
+            raise unittest.SkipTest("Skipping Gremlin tests: SKIP_GREMLIN_TESTS=true")
 
         cls.client = ClientUtils()
         cls.gremlin = cls.client.gremlin
