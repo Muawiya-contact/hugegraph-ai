@@ -144,9 +144,6 @@ class TestGremlinSetupBehavior(unittest.TestCase):
             client = client_utils_cls.return_value
             client.gremlin = mock.Mock()
             # Ensure the env var causes a SkipTest regardless of client behavior.
-            os.environ["SKIP_GREMLIN_TESTS"] = "true"
-            try:
+            with mock.patch.dict(os.environ, {"SKIP_GREMLIN_TESTS": "true"}):
                 with self.assertRaises(unittest.SkipTest):
                     TestGremlin.setUpClass()
-            finally:
-                os.environ.pop("SKIP_GREMLIN_TESTS", None)
