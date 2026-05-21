@@ -28,7 +28,6 @@ from ..client_utils import ClientUtils
 class TestGremlin(unittest.TestCase):
     client = None
     gremlin = None
-    skip_gremlin_tests = False
 
     @classmethod
     def setUpClass(cls):
@@ -52,12 +51,9 @@ class TestGremlin(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        if not cls.skip_gremlin_tests:
-            cls.client.clear_graph_all_data()
+        cls.client.clear_graph_all_data()
 
     def setUp(self):
-        if self.skip_gremlin_tests:
-            self.skipTest("Gremlin endpoint not available in this server")
         self.client.init_vertices()
         self.client.init_edges()
 
@@ -111,7 +107,6 @@ class TestGremlinSetupBehavior(unittest.TestCase):
     def tearDown(self):
         TestGremlin.client = None
         TestGremlin.gremlin = None
-        TestGremlin.skip_gremlin_tests = False
 
     def test_set_up_class_reraises_non_probe_failures(self):
         with mock.patch(f"{TestGremlin.__module__}.ClientUtils") as client_utils_cls:
@@ -121,8 +116,6 @@ class TestGremlinSetupBehavior(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "Connection refused during graph cleanup"):
                 TestGremlin.setUpClass()
-
-        self.assertFalse(TestGremlin.skip_gremlin_tests)
 
     def test_set_up_class_no_longer_probes_gremlin(self):
         # After removing the probe, setUpClass should NOT call gremlin.exec at all.
@@ -139,6 +132,5 @@ class TestGremlinSetupBehavior(unittest.TestCase):
         with mock.patch(f"{TestGremlin.__module__}.ClientUtils") as client_utils_cls:
             client = client_utils_cls.return_value
             client.gremlin = mock.Mock()
-            # Ensure the env var causes a SkipTest regardless of client behavior.
             with mock.patch.dict(os.environ, {"SKIP_GREMLIN_TESTS": "true"}), self.assertRaises(unittest.SkipTest):
                 TestGremlin.setUpClass()
