@@ -19,6 +19,41 @@ import unittest
 
 from ..client_utils import ClientUtils
 
+# Expected top-level keys in each server entry of backend_metrics
+# Captured from a real HugeGraph 1.7.0 server response at /metrics/backend
+EXPECTED_BACKEND_SERVER_KEYS = {
+    "mem_unit",
+    "disk_unit",
+    "mem_used",
+    "mem_used_readable",
+    "disk_usage",
+    "disk_usage_readable",
+    "block_cache_usage",
+    "block_cache_pinned_usage",
+    "block_cache_capacity",
+    "estimate_table_readers_mem",
+    "size_all_mem_tables",
+    "cur_size_all_mem_tables",
+    "estimate_live_data_size",
+    "total_sst_files_size",
+    "live_sst_files_size",
+    "estimate_pending_compaction_bytes",
+    "estimate_num_keys",
+    "num_entries_active_mem_table",
+    "num_entries_imm_mem_tables",
+    "num_deletes_active_mem_table",
+    "num_deletes_imm_mem_tables",
+    "num_running_flushes",
+    "mem_table_flush_pending",
+    "num_running_compactions",
+    "compaction_pending",
+    "num_immutable_mem_table",
+    "num_snapshots",
+    "oldest_snapshot_time",
+    "num_live_versions",
+    "current_super_version_number",
+}
+
 
 class TestMetricsManager(unittest.TestCase):
     client = None
@@ -70,10 +105,35 @@ class TestMetricsManager(unittest.TestCase):
         self.assertIsInstance(statistics, dict)
 
         backend_metrics = self.metrics.get_backend_metrics()
-        # In HugeGraph 1.7.0+, the backend_metrics structure changed
-        # It's still a dict, but the "hugegraph" key may not exist in the same format
-        self.assertIsInstance(backend_metrics, dict)
-        self.assertTrue(backend_metrics, "backend metrics should not be empty")
-        # Only assert on the "hugegraph" key if it exists (for backward compatibility)
-        if "hugegraph" in backend_metrics:
-            self.assertGreater(len(backend_metrics["hugegraph"]), 1)
+
+        # HugeGraph 1.7.0 backend_metrics shape:
+        # { "DEFAULT-hugegraph": { "backend": str, "nodes": int, "cluster_id": str,
+        #                          "servers": { "<server_name>": { <metrics> } } } }
+        self.assertIsInstance(backend_metrics, dict, "backend_metrics should be a dict")
+        self.assertTrue(backend_metrics, "backend_metrics should not be empty")
+
+        # Assert top-level graph key exists
+        graph_keys = list(backend_metrics.keys())
+        self.assertEqual(len(graph_keys), 1, f"Expected 1 graph key, got: {graph_keys}")
+
+        graph_entry = backend_metrics[graph_keys[0]]
+        self.assertIsInstance(graph_entry, dict)
+
+        # Assert required top-level fields in graph entry
+        self.assertIn("backend", graph_entry, "Missing 'backend' field")
+        self.assertIn("nodes", graph_entry, "Missing 'nodes' field")
+        self.assertIn("cluster_id", graph_entry, "Missing 'cluster_id' field")
+        self.assertIn("servers", graph_entry, "Missing 'servers' field")
+        self.assertIsInstance(graph_entry["backend"], str)
+        self.assertIsInstance(graph_entry["nodes"], int)
+        self.assertIsInstance(graph_entry["servers"], dict)
+
+        # Assert server entry contains expected rocksdb metric keys
+        servers = graph_entry["servers"]
+        self.assertTrue(servers, "servers should not be empty")
+        server_entry = next(iter(servers.values()))
+        missing_keys = EXPECTED_BACKEND_SERVER_KEYS - set(server_entry.keys())
+        self.assertFalse(
+            missing_keys,
+            f"backend_metrics server entry missing expected keys: {missing_keys}",
+        )
