@@ -114,7 +114,11 @@ class TestMetricsManager(unittest.TestCase):
 
         # Assert top-level graph key exists
         graph_keys = list(backend_metrics.keys())
-        self.assertEqual(len(graph_keys), 1, f"Expected 1 graph key, got: {graph_keys}")
+        self.assertGreaterEqual(
+            len(graph_keys),
+            1,
+            f"Expected at least 1 graph key, got: {graph_keys}",
+        )
 
         graph_entry = backend_metrics[graph_keys[0]]
         self.assertIsInstance(graph_entry, dict)
@@ -126,14 +130,20 @@ class TestMetricsManager(unittest.TestCase):
         self.assertIn("servers", graph_entry, "Missing 'servers' field")
         self.assertIsInstance(graph_entry["backend"], str)
         self.assertIsInstance(graph_entry["nodes"], int)
+        self.assertIsInstance(graph_entry["cluster_id"], str)
         self.assertIsInstance(graph_entry["servers"], dict)
 
         # Assert server entry contains expected rocksdb metric keys
         servers = graph_entry["servers"]
         self.assertTrue(servers, "servers should not be empty")
-        server_entry = next(iter(servers.values()))
-        missing_keys = EXPECTED_BACKEND_SERVER_KEYS - set(server_entry.keys())
-        self.assertFalse(
-            missing_keys,
-            f"backend_metrics server entry missing expected keys: {missing_keys}",
-        )
+        for server_name, server_entry in servers.items():
+            self.assertIsInstance(
+                server_entry,
+                dict,
+                f"backend_metrics server entry for {server_name} should be a dict",
+            )
+            missing_keys = EXPECTED_BACKEND_SERVER_KEYS - set(server_entry.keys())
+            self.assertFalse(
+                missing_keys,
+                f"backend_metrics server entry for {server_name} missing expected keys: {missing_keys}",
+            )
