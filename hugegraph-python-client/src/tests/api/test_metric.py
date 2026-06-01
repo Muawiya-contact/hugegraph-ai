@@ -106,21 +106,23 @@ class TestMetricsManager(unittest.TestCase):
 
         backend_metrics = self.metrics.get_backend_metrics()
 
-        # HugeGraph 1.7.0 backend_metrics shape:
-        # { "DEFAULT-hugegraph": { "backend": str, "nodes": int, "cluster_id": str,
+        # HugeGraph 1.7.0 backend_metrics shape (top-level key may be "<cluster>-<graph>"):
+        # { "<cluster>-<graph>": { "backend": str, "nodes": int, "cluster_id": str,
         #                          "servers": { "<server_name>": { <metrics> } } } }
         self.assertIsInstance(backend_metrics, dict, "backend_metrics should be a dict")
         self.assertTrue(backend_metrics, "backend_metrics should not be empty")
 
-        # Assert top-level graph key exists
-        graph_keys = list(backend_metrics.keys())
-        self.assertGreaterEqual(
-            len(graph_keys),
-            1,
-            f"Expected at least 1 graph key, got: {graph_keys}",
+        # Select the graph entry deterministically by matching the configured graph name
+        graph_key = next(
+            (k for k in backend_metrics if "hugegraph" in k),
+            None,
+        )
+        self.assertIsNotNone(
+            graph_key,
+            f"Expected a key containing 'hugegraph' in backend_metrics, got: {list(backend_metrics.keys())}",
         )
 
-        graph_entry = backend_metrics[graph_keys[0]]
+        graph_entry = backend_metrics[graph_key]
         self.assertIsInstance(graph_entry, dict)
 
         # Assert required top-level fields in graph entry
@@ -133,7 +135,7 @@ class TestMetricsManager(unittest.TestCase):
         self.assertIsInstance(graph_entry["cluster_id"], str)
         self.assertIsInstance(graph_entry["servers"], dict)
 
-        # Assert server entry contains expected rocksdb metric keys
+        # Assert every server entry contains expected rocksdb metric keys
         servers = graph_entry["servers"]
         self.assertTrue(servers, "servers should not be empty")
         for server_name, server_entry in servers.items():
@@ -145,5 +147,5 @@ class TestMetricsManager(unittest.TestCase):
             missing_keys = EXPECTED_BACKEND_SERVER_KEYS - set(server_entry.keys())
             self.assertFalse(
                 missing_keys,
-                f"backend_metrics server entry for {server_name} missing expected keys: {missing_keys}",
+                f"backend_metrics server entry for {server_name} missing expected keys: {sorted(missing_keys)}",
             )
