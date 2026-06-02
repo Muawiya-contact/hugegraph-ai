@@ -113,13 +113,14 @@ class TestMetricsManager(unittest.TestCase):
         self.assertTrue(backend_metrics, "backend_metrics should not be empty")
 
         # Select the graph entry deterministically by matching the configured graph name
+        graph_name = ClientUtils.GRAPH
         graph_key = next(
-            (k for k in backend_metrics if "hugegraph" in k),
+            (k for k in backend_metrics if graph_name in k),
             None,
         )
         self.assertIsNotNone(
             graph_key,
-            f"Expected a key containing 'hugegraph' in backend_metrics, got: {list(backend_metrics.keys())}",
+            f"Expected a key containing '{graph_name}' in backend_metrics, got: {list(backend_metrics.keys())}",
         )
 
         graph_entry = backend_metrics[graph_key]
