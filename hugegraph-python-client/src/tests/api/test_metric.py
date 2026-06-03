@@ -17,7 +17,11 @@
 
 import unittest
 
+import pytest
+
 from ..client_utils import ClientUtils
+
+pytestmark = [pytest.mark.integration, pytest.mark.hugegraph]
 
 # Expected top-level keys in each server entry of backend_metrics
 # Captured from a real HugeGraph 1.7.0 server response at /metrics/backend
@@ -112,7 +116,7 @@ class TestMetricsManager(unittest.TestCase):
         self.assertIsInstance(backend_metrics, dict, "backend_metrics should be a dict")
         self.assertTrue(backend_metrics, "backend_metrics should not be empty")
 
-        # Select the graph entry deterministically by matching the configured graph name
+        # Select the graph entry deterministically using the configured graph name
         graph_name = ClientUtils.GRAPH
         graph_key = next(
             (k for k in backend_metrics if graph_name in k),
