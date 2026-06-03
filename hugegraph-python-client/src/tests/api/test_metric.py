@@ -23,9 +23,9 @@ from ..client_utils import ClientUtils
 
 pytestmark = [pytest.mark.integration, pytest.mark.hugegraph]
 
-# Expected top-level keys in each server entry of backend_metrics
+# Expected server-entry keys for RocksDB backend
 # Captured from a real HugeGraph 1.7.0 server response at /metrics/backend
-EXPECTED_BACKEND_SERVER_KEYS = {
+EXPECTED_ROCKSDB_SERVER_KEYS = {
     "mem_unit",
     "disk_unit",
     "mem_used",
@@ -117,20 +117,20 @@ class TestMetricsManager(unittest.TestCase):
         self.assertTrue(backend_metrics, "backend_metrics should not be empty")
 
         # Select the graph entry deterministically using the configured graph name
-        graph_name = ClientUtils.GRAPH
+        graph_name = self.client.GRAPH
         graph_key = next(
-            (k for k in backend_metrics if graph_name in k),
+            (k for k in backend_metrics if k == graph_name or k.endswith(f"-{graph_name}")),
             None,
         )
         self.assertIsNotNone(
             graph_key,
-            f"Expected a key containing '{graph_name}' in backend_metrics, got: {list(backend_metrics.keys())}",
+            f"Expected a key matching '{graph_name}' in backend_metrics, got: {list(backend_metrics.keys())}",
         )
 
         graph_entry = backend_metrics[graph_key]
         self.assertIsInstance(graph_entry, dict)
 
-        # Assert required top-level fields in graph entry
+        # Assert required top-level fields in graph entry (backend-agnostic contract)
         self.assertIn("backend", graph_entry, "Missing 'backend' field")
         self.assertIn("nodes", graph_entry, "Missing 'nodes' field")
         self.assertIn("cluster_id", graph_entry, "Missing 'cluster_id' field")
@@ -140,17 +140,26 @@ class TestMetricsManager(unittest.TestCase):
         self.assertIsInstance(graph_entry["cluster_id"], str)
         self.assertIsInstance(graph_entry["servers"], dict)
 
-        # Assert every server entry contains expected rocksdb metric keys
+        # Assert every server entry — branch by backend type for portability
         servers = graph_entry["servers"]
         self.assertTrue(servers, "servers should not be empty")
+        backend_type = graph_entry["backend"]
         for server_name, server_entry in servers.items():
             self.assertIsInstance(
                 server_entry,
                 dict,
                 f"backend_metrics server entry for {server_name} should be a dict",
             )
-            missing_keys = EXPECTED_BACKEND_SERVER_KEYS - set(server_entry.keys())
-            self.assertFalse(
-                missing_keys,
-                f"backend_metrics server entry for {server_name} missing expected keys: {sorted(missing_keys)}",
-            )
+            if backend_type == "rocksdb":
+                # Pin RocksDB-specific keys captured from HugeGraph 1.7.0
+                missing_keys = EXPECTED_ROCKSDB_SERVER_KEYS - set(server_entry.keys())
+                self.assertFalse(
+                    missing_keys,
+                    f"rocksdb server entry for {server_name} missing expected keys: {sorted(missing_keys)}",
+                )
+            else:
+                # Backend-agnostic: assert non-empty dict only
+                self.assertTrue(
+                    server_entry,
+                    f"server entry for {server_name} should not be empty",
+                )
